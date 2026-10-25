@@ -1,0 +1,6 @@
+[package]
+name = "RAILRAT_MAIN_PROJECT"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
