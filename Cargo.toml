@@ -32,7 +32,7 @@ embassy-time = {
 }
 
 embassy-sync = { 
-    version = "0.7", 
+    version = "0.8.0", 
     features = [
         "defmt"
     ] 
