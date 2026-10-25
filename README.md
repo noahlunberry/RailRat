@@ -1,0 +1,1 @@
+RailRat is a self propelled inspection device that will ride along standard-gauge (4 foot, 8.5 inches) railroad. It will scan both rails with a rotating 2D LiDAR to report geometry defects of varying severity, along with their GPS location.
