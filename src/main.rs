@@ -34,7 +34,7 @@ bind_interrupts!(struct Irqs {
  *  GLOBAL SIGNALS
  */
 
-static RX_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+static RX_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new(); // Global signal to be triggered when UART receive
 
 
 
@@ -73,7 +73,6 @@ async fn flash_led_task(
 /*
  *  FUNCTIONS
  */
-
 
 // UART transmit function
 async fn uart_transmit(
@@ -146,7 +145,7 @@ async fn main(spawner : Spawner) {
     loop {
         uart_receive(&mut uart3_rx, &mut buffer).await;
 
-        RX_SIGNAL.signal(());
+        RX_SIGNAL.signal(()); // Trigger signal
 
         uart_transmit(&mut uart3_tx, &buffer).await;
     }
