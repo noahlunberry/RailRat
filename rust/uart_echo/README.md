@@ -1,0 +1,1 @@
+This example program echoes bytes received in USART3 (available via the board's USB ST-link)
