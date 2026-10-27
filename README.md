@@ -6,10 +6,10 @@ For the alpha build, LoRa will be used to send reports. In industrial deployment
 
 
 ## Team Members
-- James Chau.
-- Joel Kubinsky.
-- Noah Lunberry.
-- Tony Pham.
+- James Chau - Rust firmware development.
+- Joel Kubinsky Daughterboard & hardware integration.
+- Noah Lunberry - Chassis and wheel design.
+- Tony Pham - LiDAR integration.
 
 
 ## Hardware/Components Used
