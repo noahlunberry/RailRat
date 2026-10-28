@@ -100,24 +100,25 @@ async fn main(spawner: Spawner) {
         Irqs,
         config,
     ).unwrap();
+    let (mut uart3_tx, mut uart3_rx) = uart3.split();
 
 
 
     // PMW
 
     let mut pwm = SimplePwm::new(
-        p.TIM3,
-        Some(PwmPin::new(p.PA6, OutputType::PushPull)),
-        Some(PwmPin::new(p.PA7, OutputType::PushPull)),
+        p.TIM4,
         None,
         None,
+        Some(PwmPin::new(p.PD14, OutputType::PushPull)),
+        Some(PwmPin::new(p.PD15, OutputType::PushPull)),
         Hertz(10_000),
         CountingMode::EdgeAlignedUp,
     );
     
     let pmw_channels = pwm.split();
 
-    let mut motor_pwm = pmw_channels.ch1;
+    let mut motor_pwm = pmw_channels.ch3;
 
 
 
@@ -137,13 +138,26 @@ async fn main(spawner: Spawner) {
 
 
 
-    motor_driver.set_speed(100);
+    
 
     //  MAIN LOOP
+
+    let speeds: [i8; 5] = [100, 50, 0, -50, -100];
+    let mut buffer = [0u8; 1];
+    
     
     loop {
 
-        
+        let mut iteration = 1;
+
+        for speed in speeds.iter() {
+            motor_driver.set_speed(*speed);
+            uart3_tx.write(&[b'0' + iteration]).await.unwrap();
+            uart3_tx.write(b"\r\n\n").await.unwrap();
+
+            uart3_rx.read(&mut buffer).await.unwrap();
+            iteration += 1;
+        }
         
     }
 

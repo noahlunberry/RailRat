@@ -27,13 +27,13 @@ impl<T: GeneralInstance4Channel> MotorDriver<T> {
         Self { pwm, in1, in2 }
     }
 
-    fn brake(&mut self) {
+    pub fn brake(&mut self) {
         self.in1.set_low();
         self.in2.set_low();
         self.pwm.set_duty_cycle_fully_on();
     }
 
-    fn coast(&mut self) {
+    pub fn coast(&mut self) {
         self.pwm.set_duty_cycle_fully_off();
     }
 
@@ -52,8 +52,7 @@ impl<T: GeneralInstance4Channel> MotorDriver<T> {
             self.in2.set_high();
         }
         else {
-            self.in1.set_low();
-            self.in2.set_low();
+            self.brake();
         }
 
         self.pwm.set_duty_cycle_percent(speed.unsigned_abs());
