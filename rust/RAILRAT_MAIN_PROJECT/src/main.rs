@@ -116,9 +116,9 @@ async fn main(spawner: Spawner) {
         CountingMode::EdgeAlignedUp,
     );
     
-    let pmw_channels = pwm.split();
+    let pwm_channels = pwm.split();
 
-    let mut motor_pwm = pmw_channels.ch3;
+    let mut motor_pwm = pwm_channels.ch3;
 
 
 
