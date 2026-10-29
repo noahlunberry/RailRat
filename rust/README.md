@@ -13,6 +13,9 @@ This directory contains:
 
 ## Building & Loading
 1) The following command installs dependencies and builds the source code.
+
    `cargo build --release`
+   
 2) Flash the board.
+   
    `cargo run --release`
