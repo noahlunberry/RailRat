@@ -45,6 +45,19 @@ static EXAMPLE_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 
 
+
+#[embassy_executor::task(pool_size = 3)]
+async fn blink_led(
+    mut led : Output<'static>,
+    num_ms : u64,
+) {
+    loop {
+        led.toggle();
+        Timer::after_millis(num_ms).await;
+    }
+}
+
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
 
@@ -69,16 +82,22 @@ async fn main(spawner: Spawner) {
     );
 
     let motor_driver_in1 = Output::new(
-        p.PG2,
+        p.PG9,
         Level::Low,
         Speed::Low,
     );
     let motor_driver_in2 = Output::new(
-        p.PG3,
+        p.PG14,
         Level::Low,
         Speed::Low,
     );
 
+    let mut pa11 = Output::new(
+        p.PA11,
+        Level::Low,
+        Speed::Low,
+    );
+    pa11.set_high();
 
 
     // UART
@@ -106,19 +125,19 @@ async fn main(spawner: Spawner) {
 
     // PMW
 
-    let mut pwm = SimplePwm::new(
-        p.TIM4,
+    let pwm = SimplePwm::new(
+        p.TIM1,
+        Some(PwmPin::new(p.PE9, OutputType::PushPull)),
         None,
         None,
-        Some(PwmPin::new(p.PD14, OutputType::PushPull)),
-        Some(PwmPin::new(p.PD15, OutputType::PushPull)),
+        None,
         Hertz(10_000),
         CountingMode::EdgeAlignedUp,
     );
     
     let pwm_channels = pwm.split();
 
-    let mut motor_pwm = pwm_channels.ch3;
+    let mut motor_pwm = pwm_channels.ch1;
 
 
 
@@ -136,13 +155,14 @@ async fn main(spawner: Spawner) {
 
     //  SPAWNING TASKS
 
+    spawner.spawn(blink_led(green_led, 500).unwrap());
 
 
     
 
     //  MAIN LOOP
 
-    let speeds: [i8; 5] = [100, 50, 0, -50, -100];
+    let speeds: [i8; 9] = [100, 50, 25, 5, 0, -5, -50, -25, -100];
     let mut buffer = [0u8; 1];
     
     
