@@ -9,7 +9,7 @@ This directory contains:
 - *examples/* - Contains various example Rust projects to implement and debug microcontroller applications.
 
 ## Contributing
-**Install dependencies**
+### Install dependencies
 1) Install the STM32's [ST-LINK driver](https://www.st.com/en/development-tools/stsw-link009.html?utm_source=chatgpt.com) for flashing code, communication to the PC through UART3, and other functionality.
 2) Install [Rust and rustup](https://rust-lang.org/).
 3) Install the compilation target for the STM32F439ZI's ARM Cortex M4:
@@ -20,7 +20,7 @@ This directory contains:
 
 `cargo install probe-rs-tools --locked`
 
-**Configure build environment**
+### Configure build environment
 1) To create a new project:
 
 `cargo new <project_name>`
@@ -40,7 +40,7 @@ DEFMT_LOG = "info"
 
 3) Configure dependencies in `Cargo.toml`
 
-**Building & loading**
+### Building & loading
 1) Build the project:
 
 `cargo build --release`
