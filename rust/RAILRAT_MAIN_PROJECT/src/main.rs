@@ -25,11 +25,10 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 mod drivers;
-use crate::drivers::motor_driver::MotorDriver;
-// use crate::drivers::{MotorDriver, GPS, LiDAR};
+use crate::drivers::{MotorDriver, GPS, LiDAR};
 
 
-
+// Configure interrupt handlers for DMA-driven UART
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
 
@@ -39,24 +38,8 @@ bind_interrupts!(struct Irqs {
 
 
 
-//  GLOBAL SIGNALS
 
-static EXAMPLE_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
-
-
-
-
-#[embassy_executor::task(pool_size = 3)]
-async fn blink_led(
-    mut led : Output<'static>,
-    num_ms : u64,
-) {
-    loop {
-        led.toggle();
-        Timer::after_millis(num_ms).await;
-    }
-}
-
+//  main task is currently a motor driver test
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -64,22 +47,9 @@ async fn main(spawner: Spawner) {
     // STM32 peripherals
     let p = embassy_stm32::init(Default::default());
 
+
+
     // GPIO
-    let green_led = Output::new(
-        p.PB0,
-        Level::Low,
-        Speed::Low,
-    );
-    let blue_led = Output::new(
-        p.PB7,
-        Level::Low,
-        Speed::Low,
-    );
-    let red_led = Output::new(
-        p.PB14,
-        Level::Low,
-        Speed::Low,
-    );
 
     let motor_driver_in1 = Output::new(
         p.PG9,
@@ -92,15 +62,9 @@ async fn main(spawner: Spawner) {
         Speed::Low,
     );
 
-    let mut pa11 = Output::new(
-        p.PA11,
-        Level::Low,
-        Speed::Low,
-    );
-    pa11.set_high();
 
 
-    // UART
+    // Configure UART
 
     let mut config = Config::default();
     config.baudrate = 115_200;
@@ -108,17 +72,20 @@ async fn main(spawner: Spawner) {
     config.parity = Parity::ParityNone;
     config.stop_bits = StopBits::STOP1;
 
-    // DMA-driven UART
+    
+
+    // DMA-driven UART for ST-LINK
 
     let uart3 = Uart::new(
         p.USART3,
         p.PD9,       // RX
         p.PD8,       // TX
-        p.DMA1_CH3,   // USART3 TX DMA resource
-        p.DMA1_CH1,      // USART3 RX DMA resource
+        p.DMA1_CH3,  // USART3 TX DMA resource
+        p.DMA1_CH1,  // USART3 RX DMA resource
         Irqs,
         config,
     ).unwrap();
+
     let (mut uart3_tx, mut uart3_rx) = uart3.split();
 
 
@@ -151,11 +118,7 @@ async fn main(spawner: Spawner) {
     );
 
 
-
-
-    //  SPAWNING TASKS
-
-    spawner.spawn(blink_led(green_led, 500).unwrap());
+    //  SPAWN TASKS
 
 
     
