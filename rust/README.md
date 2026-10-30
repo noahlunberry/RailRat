@@ -38,7 +38,7 @@ runner = "probe-rs run --chip STM32F439ZI"
 DEFMT_LOG = "info"
 ```
 
-3) Configure dependencies in `Cargo.toml`
+3) Configure dependencies in `Cargo.toml`. Refer to the example projects for examples of this file.
 
 ### Building & loading
 1) Build the project:
