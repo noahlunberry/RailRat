@@ -19,9 +19,14 @@ rustup target add thumbv7em-none-eabihf # Install target core
 cargo install probe-rs-tools --locked   # Install probe-rs
 ```
 
-### 2. Configure build environment
-1) To create a new project:
+### 2. Building & loading
+```bash
+cargo build --release # Builds the project
+cargo run --release   # Flashes the STM32
+```
 
+### OPTIONAL: Creating a new example project
+1) Create a new project:
 ```bash
 cargo new <project_name>
 ```
@@ -40,12 +45,6 @@ DEFMT_LOG = "info"  # Can be changed
 ```
 
 3) Configure dependencies in `Cargo.toml`. Examples of this file can be found in the `examples/` directory.
-
-### 3. Building & loading
-```bash
-cargo build --release # Builds the project
-cargo run --release   # Flashes the STM32
-```
 
 
 ## Contributing
@@ -105,7 +104,7 @@ git merge origin/main
 
 Resolve any merge conflicts, if necessary, before continuing development.
 
-### 5. Pull Requests
+### 4. Pull Requests
 
 Once your feature is complete:
 
@@ -115,7 +114,7 @@ Once your feature is complete:
 4) Address any feedback or merge conflicts.
 5) Merge the PR once approved and tested.
 
-### 6. After Merging
+### 5. After Merging
 
 Once your pull request has been merged, update your local repository:
 
