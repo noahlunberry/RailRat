@@ -90,6 +90,7 @@ git commit -m "Example message"
 Push the new branch:
 
 ```bash
+git branch # Your branch is the one with *
 git push -u origin feature/your-feature-name
 ```
 
