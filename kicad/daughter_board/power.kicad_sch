@@ -1,0 +1,35 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "f0d336bc-8be3-401b-8e9f-a69e943e02a9")
+	(paper "A4")
+	(title_block
+		(title "Power")
+		(date "2026-11-04")
+		(comment 1 "Reviewer: N/A")
+		(comment 2 "Engineer: Noah Lunberry")
+		(comment 3 "Engineer: Joel Kubinsky")
+	)
+	(lib_symbols)
+	(text_box "Need terminal blocks to bring in power from the 12V battery, break it out into the 3V3 for the STM32, 10V(?) for the motor, and 5V for the lidar"
+		(exclude_from_sim no)
+		(at 84.455 66.04 0)
+		(size 53.975 12.7)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "45dc0acf-fff6-4753-8dcf-fee96c994451")
+	)
+)
