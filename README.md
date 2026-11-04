@@ -1,17 +1,58 @@
 # RailRat
 
-RailRat is a self propelled inspection device that will ride along standard-gauge (4 foot, 8.5 inches) railroad. It will scan both rails with a rotating 2D LiDAR to report geometry defects of varying severity, along with their GPS location. Reports will be networked to a central server. 
-
-For the alpha build, LoRa will be used to send reports. In industrial deployments, RailRat will utilize the rail's networking system.
+RailRat is a self propelled inspection device that will ride along standard-gauge (4 foot, 8.5 inches) railroad. It will scan both rails with a rotating 2D LiDAR to report geometry defects.  Any anomalies will be reported, along with their GPS location, their severity, and camera-captured images of the anomalies. Reports will be networked to a central server in real time as defects are detected. 
 
 
 ## Team Members
 - James Chau - Rust firmware development.
-- Joel Kubinsky - Daughterboard & hardware integration.
-- Noah Lunberry - Chassis and wheel design.
-- Tony Pham - LiDAR integration.
+- Joel Kubinsky - Daughterboard and hardware integration.
+- Noah Lunberry - Chassis and wheel design/assembly.
+- Tony Pham - LiDAR integration and data processing.
+
+
+## Project Architecture
+
+### External Interface
+- A GUI will be provided to RailRat's users. It will connect directly to the RailRat via an LTE-M cellular network.
+- Users can submit a GeoJSON file to configure their train station(s) and railways.
+- A main window will display these stations and railroads, as well as any anomalies on the railroads. Anomalies can be flagged as resolved and removed from the main window.
+- There will be another window to display the results of past inspection runs. There will be an option to restore any anomalies to the main window, should a user falsely marked an unresolved issue as resolved.
+
+
+### Persistent State
+- For the alpha, all user data will be stored locally.
+- The user's stations, railways, and inspection runs will be stored in CSV files.
+- During an inspection run, as defects are found, they will be added to the CSV file dynamically.
+- Each entry will contain the type of anomaly found, its severity, its latitude, longitude, and altitude data, and any other necessary data.
+- A cloud server may be deployed for future builds.
+
+### Internal Systems
+- Data collection and processing will be done on the RailRat cart by the STM32.
+- The STM32 will collect data from the peripherals, with the IMU and LiDAR being used for railroad anomaly detection.
+- If an anomaly is detected, it will send the inspection data to the persistent state via the LTE-M cellular network.
+
+
+
+## Completed Work
+- Mechanical assembly of the RailRat cart has been completed. The chassis has been built, the wheels have been printed and attached, and testing on real train tracks has been done.
+- Motor driver functionality has been integrated. It and its code was verified with o-scope readings.
+- The battery has been connected to the build, supplying 12V to the motor and motor driver.
+- The battery, motor, motor driver, and mechanical cart were integrated to perform movement tests on train tracks.
+- The LiDAR sensor's spin and data transmit functionalities have been verified via the vendor's provided app.
+
+
+## Known Bugs
+- There is no 5V supply for the STM32.
+- The STM32 has not yet been integrated with the LiDAR sensor.
+
 
 
 ## Hardware/Components Used
-- STM32F439ZI Nucleo-144 development board.
+- JGB37-520 motor with built-in encoders.
 - L298N motor driver.
+- Might Max 12V 7Ah battery.
+- STM32F439ZI Nucleo-144 development board.
+- RPLIDAR A1M8 LiDAR sensor.
+- IMU - TBD
+- GPS - TBD
+- IME-M module - TBD
