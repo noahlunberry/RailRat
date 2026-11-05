@@ -66,11 +66,18 @@ RailRat is a self propelled inspection device that will ride along standard-gaug
 
 
 ## Hardware/Components Used
+
+### Navigation & Power Supply
 - JGB37-520 motor with built-in encoders.
 - L298N motor driver.
 - Might Max 12V 7Ah battery.
+
+### Microcontroller
 - STM32F439ZI Nucleo-144 development board.
+
+### Sensors & Daughterboard Components
 - RPLIDAR A1M8 LiDAR sensor.
-- IMU - TBD
-- GPS - TBD
-- IME-M module - TBD
+- IAM-20680 IMU.
+- SparkFun SAM-M10Q GPS.
+- IME-M module - **TBD**
+- MicroSD SPI breakout

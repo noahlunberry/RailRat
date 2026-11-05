@@ -1,2 +1,8 @@
 # Rust build outputs
 **target/
+
+# Ignores example project files except Cargo metadata and src/main.rs
+/rust/examples/*/*
+!/rust/examples/*/Cargo.toml
+!/rust/examples/*/Cargo.lock
+!/rust/examples/*/src/main.rs
