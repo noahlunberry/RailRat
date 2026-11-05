@@ -31,7 +31,24 @@ RailRat is a self propelled inspection device that will ride along standard-gaug
 - The STM32 will collect data from the peripherals, with the IMU and LiDAR being used for railroad anomaly detection.
 - If an anomaly is detected, it will send the inspection data to the persistent state via the LTE-M cellular network.
 
+### Communication
+- LiDAR <-> STM32 over UART (115200 baud) using Slamtec's RPLIDAR protocol.
+- IMU <-> STM32 over I2C; GPS <-> STM32 over UART (NMEA).
+- STM32 controls the motor driver with PWM (speed) and GPIO (direction), and reads the motor encoder for distance.
+- The firmware subsystems run as separate Embassy async tasks connected by channels. LiDAR spins use a double buffer: one fills while the other is processed.
+- Cart <-> ground station over a LoRa radio link. The ground station writes defects to the CSV and can send a stop command.
 
+### Information Handling
+- Each defect is sent as a packet with an event ID, sequence number, timestamp, location (GPS + milepost), defect type, severity, measured value, and CRC.
+- Defects are saved to the cart's microSD before sending. The ground station replies with an ACK; if none arrives, the cart resends.
+- Full LiDAR scans are logged to microSD and copied off after each run.
+
+### Integrity & Resilience
+- **Faulty data:** LiDAR samples have built-in check bits, GPS sentences have checksums, and every radio packet has a CRC. Bad data is dropped.
+- **Interference:** ACK + retry recovers lost packets, sequence numbers detect gaps, and duplicates are dropped by event ID.
+- **Intrusion:** packets carry a HMAC (keyed hash) so fake or replayed packets are rejected.
+
+*Status: LiDAR check-bit validation is in progress with the driver; the rest is planned.*
 
 ## Completed Work
 - Mechanical assembly of the RailRat cart has been completed. The chassis has been built, the wheels have been printed and attached, and testing on real train tracks has been done.
