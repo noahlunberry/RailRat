@@ -8,16 +8,19 @@ use embassy_stm32::{
 
 
 // Uses a generic timer
-pub struct MotorDriver<T: GeneralInstance4Channel> {
-    pwm: SimplePwmChannel<'static, T>, // connect enable to PMW channel
+pub struct MotorDriver<Timer> 
+where
+    Timer: GeneralInstance4Channel,
+{
+    pwm: SimplePwmChannel<'static, Timer>, // connect enable to PMW channel
     in1: Output<'static>,
     in2: Output<'static>,
 }
 
-impl<T: GeneralInstance4Channel> MotorDriver<T> {
+impl<Timer: GeneralInstance4Channel> MotorDriver<Timer> {
 
     pub fn new(
-        mut pwm: SimplePwmChannel<'static, T>,
+        mut pwm: SimplePwmChannel<'static, Timer>,
         in1: Output<'static>,
         in2: Output<'static>,
     ) -> Self {
