@@ -851,6 +851,27 @@
 			(embedded_fonts no)
 		)
 	)
+	(text_box "All SMD capacitors here can be placed using the 0805 caps in the SZBUHNA book from the lab"
+		(exclude_from_sim yes)
+		(at 142.24 90.17 0)
+		(size 32.385 12.7)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type color)
+			(color 255 251 139 1)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "25d20128-5b99-481f-82cf-9034c39f4781")
+	)
 	(junction
 		(at 199.39 111.76)
 		(diameter 0)
