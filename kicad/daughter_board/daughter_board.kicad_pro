@@ -426,17 +426,17 @@
     "top_level_sheets": [
       {
         "filename": "daughter_board.kicad_sch",
-        "name": "Root",
+        "name": "Cover Sheet",
         "uuid": "2b3f09ef-97b1-4165-98b3-d2f4116af970"
       }
     ],
-    "used_designators": "J1",
+    "used_designators": "#PWR1-7,J1-4",
     "variants": []
   },
   "sheets": [
     [
       "2b3f09ef-97b1-4165-98b3-d2f4116af970",
-      "Root"
+      "Cover Sheet"
     ],
     [
       "b374ffbf-e661-484f-a709-3ce1a2cddafb",
@@ -449,6 +449,18 @@
     [
       "18c7cd6e-0752-4a0e-a542-b7aed0060538",
       "LiDAR"
+    ],
+    [
+      "7047a739-e0f4-41c1-ad3b-fd1c21fc72d1",
+      "GPS"
+    ],
+    [
+      "39f1d138-e113-4347-a4f4-e8e61e921605",
+      "Motor Controller"
+    ],
+    [
+      "bd7ea7a3-2469-4a50-8a07-c69e77ac4df1",
+      "Data"
     ]
   ],
   "text_variables": {},
