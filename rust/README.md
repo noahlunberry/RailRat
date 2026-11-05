@@ -12,11 +12,11 @@ This directory contains:
 ### 1. Install dependencies
 1) Set up USB connection for the ST-LINK:
 
-**WINDOWS** - Install the STM32's [ST-LINK USB driver](https://www.st.com/en/development-tools/stsw-link009.html?utm_source=chatgpt.com) for flashing code, communication to the PC through UART3, and other functionality.
+    - **WINDOWS** - Install the STM32's [ST-LINK USB driver](https://www.st.com/en/development-tools/stsw-link009.html?utm_source=chatgpt.com) for flashing code, communication to the PC through UART3, and other functionality.
 
-**LINUX** - The ST-LINK is already Linux-compatible. If root/admin privileges are not available, you will need to grant USB permissions through [udev](https://probe.rs/docs/getting-started/probe-setup/).
+    - **LINUX** - The ST-LINK is already Linux-compatible. If root/admin privileges are not available, you will need to grant USB permissions through [udev](https://probe.rs/docs/getting-started/probe-setup/).
 
-**MACOS** - The ST-LINK is already compatible. No further setup is needed to use it.
+    - **MACOS** - The ST-LINK is already compatible. No further setup is needed to use it.
 
 2) Install [Rust and rustup](https://rust-lang.org/).
 3) Install and add the compilation target for the STM32F439ZI's ARM Cortex M4:
