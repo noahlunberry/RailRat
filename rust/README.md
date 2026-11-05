@@ -11,6 +11,7 @@ This directory contains:
 ## Getting Started
 ### 1. Install dependencies
 1) Set up USB connection for the ST-LINK
+
 **WINDOWS** - Install the STM32's [ST-LINK USB driver](https://www.st.com/en/development-tools/stsw-link009.html?utm_source=chatgpt.com) for flashing code, communication to the PC through UART3, and other functionality.
 
 **LINUX** - The ST-LINK is already Linux-compatible. If root/admin privileges are not available, you will need to grant USB permissions through [udev](https://probe.rs/docs/getting-started/probe-setup/).
