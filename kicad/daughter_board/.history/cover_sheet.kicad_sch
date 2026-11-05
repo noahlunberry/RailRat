@@ -1,0 +1,19 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "2d3de49e-4d52-413a-8f1d-154709020dcc")
+	(paper "A4")
+	(title_block
+		(date "2026-11-04")
+		(comment 1 "Reviewer: N/A")
+		(comment 2 "Engineer: Noah Lunberry")
+		(comment 3 "Engineer: Joel Kubinsky")
+	)
+	(lib_symbols)
+	(sheet_instances
+		(path "/"
+			(page "8")
+		)
+	)
+)

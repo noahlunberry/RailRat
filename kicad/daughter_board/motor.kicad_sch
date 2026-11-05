@@ -353,16 +353,16 @@
 			)
 		)
 		(pin "4"
-			(uuid "9550b439-e86f-40a0-b59c-f332bb073a90")
+			(uuid "da14af7f-bb83-43b3-9a11-c56e10f4277d")
 		)
 		(pin "3"
-			(uuid "e17385d5-3ed4-4658-8348-c1ab483c6bc9")
+			(uuid "0f9179be-8819-4b05-8c7a-ad57a7b935f7")
 		)
 		(pin "2"
-			(uuid "06904f14-580d-4dc6-bd8a-fa9c8e9eee72")
+			(uuid "62215c3c-d4a7-4358-b911-a5b7c633c047")
 		)
 		(pin "1"
-			(uuid "3a9a814f-2dd9-4794-85e1-89604de50627")
+			(uuid "9f7346d2-a469-40de-8cf4-c52b6a4daa60")
 		)
 		(instances
 			(project "daughter_board"
