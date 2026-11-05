@@ -33,10 +33,11 @@ RailRat is a self propelled inspection device that will ride along standard-gaug
 
 ### Communication
 - LiDAR <-> STM32 over UART (115200 baud) using Slamtec's RPLIDAR protocol.
-- IMU <-> STM32 over I2C; GPS <-> STM32 over UART (NMEA).
-- STM32 controls the motor driver with PWM (speed) and GPIO (direction), and reads the motor encoder for distance.
-- The firmware subsystems run as separate Embassy async tasks connected by channels. LiDAR spins use a double buffer: one fills while the other is processed.
-- Cart <-> ground station over a LoRa radio link. The ground station writes defects to the CSV and can send a stop command.
+- IMU <-> STM32 over I2C
+- GPS <-> STM32 over UART (NMEA).
+- STM32 controls the motor driver with PWM (speed) and GPIO (direction). It reads the motor encoder to calculate distance traveled and current velocity.
+- The firmware subsystems run as separate Embassy asynchronous tasks connected by channels. LiDAR spins use a double buffer: one fills while the other is processed.
+- Cart <-> ground station over an LTE-M cellular network. The ground station writes defects to a CSV and can send a stop command.
 
 ### Information Handling
 - Each defect is sent as a packet with an event ID, sequence number, timestamp, location (GPS + milepost), defect type, severity, measured value, and CRC.
