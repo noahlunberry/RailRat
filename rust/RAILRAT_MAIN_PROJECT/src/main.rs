@@ -25,7 +25,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 mod drivers;
-use crate::drivers::{MotorDriver, GPS, LiDAR};
+use crate::drivers::{MotorDriver, GPS, Rplidar};
 
 
 // Configure interrupt handlers for DMA-driven UART
@@ -76,7 +76,7 @@ async fn main(spawner: Spawner) {
 
     // DMA-driven UART for ST-LINK
 
-    let uart3 = Uart::new(
+    let mut uart3 = Uart::new(
         p.USART3,
         p.PD9,       // RX
         p.PD8,       // TX

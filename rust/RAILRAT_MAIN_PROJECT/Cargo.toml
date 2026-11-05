@@ -1,18 +1,55 @@
 [package]
-name = "starter"
+name = "main"
 version = "0.1.0"
 edition = "2024"
 
 
+
 [dependencies]
-embassy-stm32.workspace = true
-embassy-executor.workspace = true
-embassy-time.workspace = true
-embassy-sync.workspace = true
 
-defmt.workspace = true
-defmt-rtt.workspace = true
-panic-probe.workspace = true
+embassy-stm32 = {
+    version = "0.6.0",
+    features = [
+        "stm32f439zi",
+        "memory-x",
+        "time-driver-tim2",
+    ]
+}
 
-cortex-m.workspace = true
-cortex-m-rt.workspace = true
+embassy-executor = { 
+    version = "0.10.0", 
+    features = [
+        "platform-cortex-m",
+        "executor-thread",
+    ] 
+}
+
+embassy-time = { 
+    version = "0.5.1",
+    features = [
+        "tick-hz-32_768",
+    ]
+}
+
+embassy-sync = { 
+    version = "0.8.0", 
+    features = [
+        "defmt"
+    ] 
+}
+
+defmt = "1.0.1"
+defmt-rtt = "1.0.0"
+panic-probe = { version = "1.0.0", features = ["print-defmt"] }
+
+cortex-m = { 
+    version = "0.7.7", 
+    features = ["critical-section-single-core"] 
+}
+
+cortex-m-rt = "0.7.7"
+
+
+
+[profile.release]
+debug = 2

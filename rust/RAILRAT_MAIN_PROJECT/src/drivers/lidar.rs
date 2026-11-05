@@ -66,7 +66,7 @@ where
     ) {
         let speed = speed.clamp(0, 100);
 
-        self.pwm.set_duty_cycle_fully_percent(speed);
+        self.pwm.set_duty_cycle_percent(speed);
     }
 
     pub async fn reset(
@@ -97,7 +97,7 @@ where
         let res = self.uart.write(&[0xA5, 0x25]).await?;
         self.pwm.set_duty_cycle_fully_off();
         
-        res
+        Ok(())
     }
 
     pub async fn read_point(
