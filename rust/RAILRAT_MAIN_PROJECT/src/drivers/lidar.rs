@@ -1,6 +1,12 @@
-use embedded_hal::serial::{Read, Write};
-use embedded_hal::digital::v2::OutputPin;
-use nb::block;
+use embassy_stm32::{
+    usart::Uart,
+    mode::Async,
+    timer::{
+        GeneralInstance4Channel,
+        simple_pwm::SimplePwmChannel,
+    },
+};
+
 
 pub struct ScanPoint {
     pub distance_mm: f32,
@@ -9,60 +15,81 @@ pub struct ScanPoint {
     pub start_flag: bool,
 }
 
-pub struct Rplidar<UART, MOTOCTL> {
-    uart: UART,
-    motor_pin: MOTOCTL,
+
+pub struct Rplidar<Timer> 
+where
+    Timer: GeneralInstance4Channel,
+{
+    uart: Uart<'static, Async>,
+    pwm: SimplePwmChannel<'static, Timer>, 
 }
 
-impl<UART, MOTOCTL, E, PinE> Rplidar<UART, MOTOCTL>
+
+impl<Timer> Rplidar<Timer>
 where
-    UART: Read<u8, Error = E> + Write<u8, Error = E>,
-    MOTOCTL: OutputPin<Error = PinE>,
+    Timer: GeneralInstance4Channel,
 {
-    pub fn new(uart: UART, motor_pin: MOTOCTL) -> Self {
-        Self { uart, motor_pin }
+    pub fn new(
+        mut pwm: SimplePwmChannel<'static, Timer>,
+        uart: Uart<'static, Async>,
+    ) -> Self {
+        pwm.set_duty_cycle_fully_off();
+        pwm.enable();
+
+        Self { uart, pwm }
     }
 
     pub fn start_motor(&mut self) {
-        let _ = self.motor_pin.set_high();
+        self.pwm.set_duty_cycle_fully_on();
     }
 
     pub fn stop_motor(&mut self) {
-        let _ = self.motor_pin.set_low();
+        self.pwm.set_duty_cycle_fully_off();
     }
 
-    pub fn start_scan(&mut self) {
-        let _ = block!(self.uart.write(0xA5));
-        let _ = block!(self.uart.write(0x20));
+    pub async fn start_scan(
+        &mut self,
+    ) -> Result<(), embassy_stm32::usart::Error> {
+        self.uart.write(&[0xA5, 0x20]).await?;
 
-        for _ in 0..7 {
-            let _ = block!(self.uart.read());
-        }
+        let mut descriptor = [0u8; 7];
+        self.uart.read(&mut descriptor).await?;
+
+        Ok(())
     }
 
-    pub fn read_point(&mut self) -> ScanPoint {
+    pub async fn read_point(
+        &mut self,
+    ) -> Result<ScanPoint, embassy_stm32::usart::Error> {
         let mut buf = [0u8; 5];
-        
-        for i in 0..5 {
-            buf[i] = block!(self.uart.read()).unwrap_or(0);
+
+        // Read the scan of 5 bytes.
+        self.uart.read(&mut buf).await?;
+
+        // Check packet validity.
+        let start = buf[0] & 0x01;
+        let inverse_start = (buf[0] >> 1) & 0x01;
+        let check_bit = buf[1] & 0x01;
+
+        if (start == inverse_start) || (check_bit != 1) {
+            return Err(LidarError::InvalidMeasurement);
         }
 
-        let s = buf[0] & 0x01;
-        
+
         let quality = buf[0] >> 2;
-        let start_flag = s == 1;
+        let start_flag = (buf[0] & 0x01) != 0;
 
-        let angle_q6 = ((buf[1] >> 1) as u16) | ((buf[2] as u16) << 7);
-        let angle_deg = angle_q6 as f32 / 64.0;
+        let angle_q6 =
+            ((buf[1] as u16) >> 1) | ((buf[2] as u16) << 7);
 
-        let dist_q2 = (buf[3] as u16) | ((buf[4] as u16) << 8);
-        let distance_mm = dist_q2 as f32 / 4.0;
+        let dist_q2 =
+            (buf[3] as u16) | ((buf[4] as u16) << 8);
 
-        ScanPoint {
-            distance_mm,
-            angle_deg,
+        Ok(ScanPoint {
+            distance_mm: dist_q2 as f32 / 4.0,
+            angle_deg: angle_q6 as f32 / 64.0,
             quality,
             start_flag,
-        }
+        })
     }
 }
