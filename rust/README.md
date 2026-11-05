@@ -10,18 +10,21 @@ This directory contains:
 
 ## Getting Started
 ### 1. Install dependencies
-1) Install the STM32's [ST-LINK driver](https://www.st.com/en/development-tools/stsw-link009.html?utm_source=chatgpt.com) for flashing code, communication to the PC through UART3, and other functionality.
-2) Install [Rust and rustup](https://rust-lang.org/).
-3) Install the compilation target for the STM32F439ZI's ARM Cortex M4:
+**WINDOWS** - Install the STM32's [ST-LINK USB driver](https://www.st.com/en/development-tools/stsw-link009.html?utm_source=chatgpt.com) for flashing code, communication to the PC through UART3, and other functionality.
+**LINUX** - The ST-LINK is already Linux-compatible. If root/admin privileges are not available, you will need to grant USB permissions through [udev](https://probe.rs/docs/getting-started/probe-setup/).
+**MACOS** - The ST-LINK is already compatible. No further setup is needed to use it.
+1) Install [Rust and rustup](https://rust-lang.org/).
+2) Install and add the compilation target for the STM32F439ZI's ARM Cortex M4:
 
 ```bash
+rustup default stable
 rustup target add thumbv7em-none-eabihf # Install target core
 cargo install probe-rs-tools --locked   # Install probe-rs
 ```
 
 ### 2. Building & loading
 ```bash
-cargo build --release # Builds the project
+cargo build --release # Compiles your firmware
 cargo run --release   # Flashes the STM32
 ```
 
