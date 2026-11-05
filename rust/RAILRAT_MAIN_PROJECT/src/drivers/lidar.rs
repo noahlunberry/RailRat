@@ -6,6 +6,27 @@ use embassy_stm32::{
         simple_pwm::SimplePwmChannel,
     },
 };
+use embassy_time::{
+    with_timeout, 
+    Duration
+};
+
+
+
+#[derive(Debug)]
+pub enum LidarError {
+    Uart(embassy_stm32::usart::Error),
+    InvalidMeasurement,
+    InvalidDescriptor,
+    Timeout,
+}
+
+
+impl From<embassy_stm32::usart::Error> for LidarError {
+    fn from(error: embassy_stm32::usart::Error) -> Self {
+        LidarError::Uart(error)
+    }
+}
 
 
 pub struct ScanPoint {
@@ -39,28 +60,49 @@ where
         Self { uart, pwm }
     }
 
-    pub fn start_motor(&mut self) {
-        self.pwm.set_duty_cycle_fully_on();
+    pub fn set_motor_speed(
+        &mut self, 
+        speed: u8,
+    ) {
+        let speed = speed.clamp(0, 100);
+
+        self.pwm.set_duty_cycle_fully_percent(speed);
     }
 
-    pub fn stop_motor(&mut self) {
-        self.pwm.set_duty_cycle_fully_off();
-    }
-
-    pub async fn start_scan(
+    pub async fn reset(
         &mut self,
-    ) -> Result<(), embassy_stm32::usart::Error> {
+    ) -> Result<(), LidarError> {
+        self.uart.write(&[0xA5, 0x40]).await?;
+        Ok(())
+    }
+
+    pub async fn start(
+        &mut self,
+    ) -> Result<(), LidarError> {
         self.uart.write(&[0xA5, 0x20]).await?;
 
-        let mut descriptor = [0u8; 7];
-        self.uart.read(&mut descriptor).await?;
+        let mut res = [0u8; 7];
+        self.uart.read(&mut res).await?;
+
+        if res != [0xA5, 0x5A, 0x05, 0x00, 0x00, 0x40, 0x81] {
+            return Err(LidarError::InvalidDescriptor);
+        }
 
         Ok(())
     }
 
+    pub async fn halt(
+        &mut self,
+    ) -> Result<(), LidarError> {
+        let res = self.uart.write(&[0xA5, 0x25]).await?;
+        self.pwm.set_duty_cycle_fully_off();
+        
+        res
+    }
+
     pub async fn read_point(
         &mut self,
-    ) -> Result<ScanPoint, embassy_stm32::usart::Error> {
+    ) -> Result<ScanPoint, LidarError> {
         let mut buf = [0u8; 5];
 
         // Read the scan of 5 bytes.
@@ -91,5 +133,13 @@ where
             quality,
             start_flag,
         })
+    }
+
+    pub async fn send_command(
+        &mut self,
+        command: u8,
+    ) -> Result<(), LidarError> {
+        self.uart.write(&[0xA5, command]).await?;
+        Ok(())
     }
 }

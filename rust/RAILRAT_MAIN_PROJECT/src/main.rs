@@ -86,8 +86,6 @@ async fn main(spawner: Spawner) {
         config,
     ).unwrap();
 
-    let (mut uart3_tx, mut uart3_rx) = uart3.split();
-
 
 
     // PMW
@@ -135,10 +133,10 @@ async fn main(spawner: Spawner) {
 
         for speed in speeds.iter() {
             motor_driver.set_speed(*speed);
-            uart3_tx.write(&[b'0' + iteration]).await.unwrap();
-            uart3_tx.write(b"\r\n\n").await.unwrap();
+            uart3.write(&[b'0' + iteration]).await.unwrap();
+            uart3.write(b"\r\n\n").await.unwrap();
 
-            uart3_rx.read(&mut buffer).await.unwrap();
+            uart3.read(&mut buffer).await.unwrap();
             iteration += 1;
         }
         

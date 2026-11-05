@@ -103,10 +103,14 @@ impl<Timer: GeneralInstance4Channel> MotorDriver<Timer> {
     /// 
     /// ex.set_speed(50);
     /// ```
-    pub fn set_speed(&mut self, speed: i8) {
+    pub fn set_speed(
+        &mut self, 
+        speed: i8
+    ) {
 
         let speed = speed.clamp(-100, 100);
 
+        // For safety, turn the motor driver off before changing speed
         self.pwm.set_duty_cycle_fully_off();
 
         if speed > 0 { // forwards
