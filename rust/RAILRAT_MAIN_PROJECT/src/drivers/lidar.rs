@@ -11,22 +11,26 @@ use embassy_time::{
     Duration
 };
 
+use crate::shared::uart::{
+    uart_read, 
+    uart_write, 
+    UartError
+};
 
 
 #[derive(Debug)]
 pub enum LidarError {
-    Uart(embassy_stm32::usart::Error),
+    Uart(UartError),
     InvalidMeasurement,
     InvalidDescriptor,
-    Timeout,
 }
 
-
-impl From<embassy_stm32::usart::Error> for LidarError {
-    fn from(error: embassy_stm32::usart::Error) -> Self {
-        LidarError::Uart(error)
+impl From<UartError> for LidarError {
+    fn from(error: UartError) -> Self {
+        Self::Uart(error)
     }
 }
+
 
 
 pub struct ScanPoint {
@@ -69,44 +73,61 @@ where
         self.pwm.set_duty_cycle_percent(speed);
     }
 
-    pub async fn reset(
-        &mut self,
-    ) -> Result<(), LidarError> {
-        self.uart.write(&[0xA5, 0x40]).await?;
+    pub async fn reset(&mut self) -> Result<(), LidarError> {
+
+        uart_write(
+            &mut self.uart,
+            &[0xA5, 0x40],
+            Duration::from_millis(500),
+        ).await?;
+
         Ok(())
     }
 
-    pub async fn start(
-        &mut self,
-    ) -> Result<(), LidarError> {
-        self.uart.write(&[0xA5, 0x20]).await?;
+    pub async fn start(&mut self) -> Result<(), LidarError> {
+        uart_write(
+            &mut self.uart,
+            &[0xA5, 0x20],
+            Duration::from_millis(500),
+        ).await?;
 
-        let mut res = [0u8; 7];
-        self.uart.read(&mut res).await?;
+        let mut response = [0u8; 7];
 
-        if res != [0xA5, 0x5A, 0x05, 0x00, 0x00, 0x40, 0x81] {
+        uart_read(
+            &mut self.uart,
+            &mut response,
+            Duration::from_millis(1000),
+        ).await?;
+
+        if response != [0xA5, 0x5A, 0x05, 0x00, 0x00, 0x40, 0x81] {
             return Err(LidarError::InvalidDescriptor);
         }
 
         Ok(())
     }
 
-    pub async fn halt(
-        &mut self,
-    ) -> Result<(), LidarError> {
-        let res = self.uart.write(&[0xA5, 0x25]).await?;
+    pub async fn halt(&mut self) -> Result<(), LidarError> {
+        let res = uart_write(
+            &mut self.uart,
+            &[0xA5, 0x25],
+            Duration::from_millis(500),
+        ).await;
+
         self.pwm.set_duty_cycle_fully_off();
         
+        res?;
         Ok(())
     }
 
-    pub async fn read_point(
-        &mut self,
-    ) -> Result<ScanPoint, LidarError> {
+    pub async fn read_point(&mut self) -> Result<ScanPoint, LidarError> {
         let mut buf = [0u8; 5];
 
         // Read the scan of 5 bytes.
-        self.uart.read(&mut buf).await?;
+        uart_read(
+            &mut self.uart,
+            &mut buf,
+            Duration::from_millis(1000),
+        ).await?;
 
         // Check packet validity.
         let start = buf[0] & 0x01;
@@ -120,12 +141,8 @@ where
 
         let quality = buf[0] >> 2;
         let start_flag = (buf[0] & 0x01) != 0;
-
-        let angle_q6 =
-            ((buf[1] as u16) >> 1) | ((buf[2] as u16) << 7);
-
-        let dist_q2 =
-            (buf[3] as u16) | ((buf[4] as u16) << 8);
+        let angle_q6 = ((buf[1] as u16) >> 1) | ((buf[2] as u16) << 7);
+        let dist_q2 = (buf[3] as u16) | ((buf[4] as u16) << 8);
 
         Ok(ScanPoint {
             distance_mm: dist_q2 as f32 / 4.0,
@@ -139,7 +156,12 @@ where
         &mut self,
         command: u8,
     ) -> Result<(), LidarError> {
-        self.uart.write(&[0xA5, command]).await?;
+        uart_write(
+            &mut self.uart,
+            &[0xA5, command],
+            Duration::from_millis(500),
+        ).await?;
+
         Ok(())
     }
 }

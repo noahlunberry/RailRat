@@ -6,15 +6,30 @@ use embassy_time::Timer;
 use embassy_stm32::{
     bind_interrupts,
     dma,
-    gpio::{Level, Output, OutputType, Speed},
+    gpio::{
+        Level, 
+        Output, 
+        OutputType, 
+        Speed
+    },
     mode::Async,
     peripherals,
     time::Hertz,
     timer::{
         low_level::CountingMode,
-        simple_pwm::{PwmPin, SimplePwm},
+        simple_pwm::{
+            PwmPin, 
+            SimplePwm
+        },
     },
-    usart::{self, Config, DataBits, Parity, StopBits, Uart, UartTx, UartRx},
+    usart::{
+        self, 
+        Config, 
+        DataBits, 
+        Parity, 
+        StopBits, 
+        Uart
+    },
 };
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
@@ -24,8 +39,20 @@ use embassy_sync::{
 use defmt_rtt as _;
 use panic_probe as _;
 
+
+mod shared;
 mod drivers;
-use crate::drivers::{MotorDriver, GPS, Rplidar};
+
+use crate::{
+    shared::{
+        uart::{uart_read, uart_write, UartError},
+    },
+    drivers::{
+        MotorDriver, 
+        GPS, 
+        Rplidar
+    },
+};
 
 
 // Configure interrupt handlers for DMA-driven UART

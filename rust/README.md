@@ -28,6 +28,7 @@ cargo install probe-rs-tools --locked   # Install probe-rs
 ```
 
 ### 2. Building & loading
+From the `rust/` directory:
 ```bash
 cargo build --release # Compiles your firmware
 cargo run --release   # Flashes the STM32
@@ -37,12 +38,19 @@ cargo run --release   # Flashes the STM32
 1) Create a new project:
 
 ```bash
-cargo new <PROJECT_NAME>
+cargo new examples/<PROJECT_NAME>
 ```
 
 2) Copy the contents of `RAILRAT_MAIN_PROJECT/Cargo.toml` into the example project's `Cargo.toml`. Change the project name appropriately.
 
 3) Copy any necessary source code from `RAILRAT_MAIN_PROJECT/src/` into the example project's `src/` directory.
+
+4) To build and flash from the `rust/` directory:
+
+```bash
+cargo build -p <PROJECT_NAME> --release
+cargo run -p <PROJECT_NAME> --release
+```
 
 
 ## Contributing
