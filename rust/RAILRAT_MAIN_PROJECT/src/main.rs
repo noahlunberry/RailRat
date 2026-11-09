@@ -40,10 +40,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 
-mod shared;
-mod drivers;
-
-use crate::{
+use railrat::{
     shared::{
         uart::{uart_read, uart_write, UartError},
     },

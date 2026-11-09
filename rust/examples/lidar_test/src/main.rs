@@ -21,12 +21,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 // Reuse the main project's driver so there is only one copy of it
-#[path = "../../../RAILRAT_MAIN_PROJECT/src/shared/mod.rs"]
-mod shared;
-#[path = "../../../RAILRAT_MAIN_PROJECT/src/drivers/lidar.rs"]
-mod lidar;
-
-use lidar::Rplidar;
+use railrat::drivers::Rplidar;
 
 
 // When code does `.await` on this UART, the task sleeps until one of these

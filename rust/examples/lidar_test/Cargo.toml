@@ -11,6 +11,8 @@ test = false
 bench = false
 
 [dependencies]
+railrat = { path = "../../RAILRAT_MAIN_PROJECT", package = "main" }
+
 embassy-stm32.workspace = true
 embassy-executor.workspace = true
 embassy-time.workspace = true
