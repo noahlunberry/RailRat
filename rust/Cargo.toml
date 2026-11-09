@@ -3,7 +3,7 @@ resolver = "2"
 
 members = [
     "RAILRAT_MAIN_PROJECT",
-    "examples/*",
+    "examples/lidar_test"
 ]
 
 default-members = ["RAILRAT_MAIN_PROJECT"]
