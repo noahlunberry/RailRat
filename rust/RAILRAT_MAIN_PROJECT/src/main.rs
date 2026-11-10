@@ -115,7 +115,7 @@ async fn main(spawner: Spawner) {
 
 
 
-    // PMW
+    // PWM
 
     let pwm = SimplePwm::new(
         p.TIM1,
