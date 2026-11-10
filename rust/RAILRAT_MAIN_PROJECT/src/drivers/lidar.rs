@@ -1,5 +1,5 @@
 use embassy_stm32::{
-    usart::Uart,
+    usart::{RingBufferedUartRx, Uart, UartTx},
     mode::Async,
     timer::{
         GeneralInstance4Channel,
@@ -11,11 +11,7 @@ use embassy_time::{
     Duration
 };
 
-use crate::shared::uart::{
-    uart_read, 
-    uart_write, 
-    UartError
-};
+use crate::shared::uart::UartError;
 
 
 #[derive(Debug)]
@@ -28,6 +24,13 @@ pub enum LidarError {
 impl From<UartError> for LidarError {
     fn from(error: UartError) -> Self {
         Self::Uart(error)
+    }
+}
+
+// The ring-buffered receiver and UartTx return the raw UART error.
+impl From<embassy_stm32::usart::Error> for LidarError {
+    fn from(error: embassy_stm32::usart::Error) -> Self {
+        Self::Uart(UartError::Hardware(error))
     }
 }
 
@@ -45,8 +48,9 @@ pub struct Rplidar<Timer>
 where
     Timer: GeneralInstance4Channel,
 {
-    uart: Uart<'static, Async>,
-    pwm: SimplePwmChannel<'static, Timer>, 
+    tx: UartTx<'static, Async>,
+    rx: RingBufferedUartRx<'static>,
+    pwm: SimplePwmChannel<'static, Timer>,
 }
 
 
@@ -57,11 +61,50 @@ where
     pub fn new(
         mut pwm: SimplePwmChannel<'static, Timer>,
         uart: Uart<'static, Async>,
+        rx_buffer: &'static mut [u8],
     ) -> Self {
         pwm.set_duty_cycle_fully_off();
         pwm.enable();
 
-        Self { uart, pwm }
+        // The lidar streams almost as fast as 115200 baud can carry, so a plain
+        // uart.read() loses bytes in the gap between calls. In ring-buffered mode,
+        // DMA keeps writing into rx_buffer in the background, looping back to the
+        // start when it reaches the end, and read() takes bytes out of it.
+        // Splitting first is required because only the receive half is ring-buffered.
+        let (tx, rx) = uart.split();
+        let mut rx = rx.into_ring_buffered(rx_buffer);
+        rx.start_uart();
+
+        Self { tx, rx, pwm }
+    }
+
+    /// Fills all of `buf`. A ring-buffered read() returns however many bytes are
+    /// ready, which can be fewer than requested, so this keeps reading until full.
+    async fn read_exact(
+        &mut self,
+        buf: &mut [u8],
+    ) -> Result<(), LidarError> {
+        let mut filled = 0;
+
+        while filled < buf.len() {
+            filled += self.rx.read(&mut buf[filled..]).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Discards any received bytes left over from a previous command.
+    /// Reads until the line has been quiet for 20 ms, then the buffer is empty.
+    pub async fn clear_rx(
+        &mut self,
+    ) {
+        let mut buf = [0u8; 64];
+
+        for _ in 0..100 {
+            if with_timeout(Duration::from_millis(20), self.rx.read(&mut buf)).await.is_err() {
+                break;
+            }
+        }
     }
 
     pub fn set_motor_speed(
@@ -73,69 +116,69 @@ where
         self.pwm.set_duty_cycle_percent(speed);
     }
 
-    pub async fn reset(&mut self) -> Result<(), LidarError> {
-
-        uart_write(
-            &mut self.uart,
-            &[0xA5, 0x40],
-            Duration::from_millis(500),
-        ).await?;
-
+    pub async fn reset(
+        &mut self,
+    ) -> Result<(), LidarError> {
+        self.tx.write(&[0xA5, 0x40]).await?;
         Ok(())
     }
 
-    pub async fn start(&mut self) -> Result<(), LidarError> {
-        uart_write(
-            &mut self.uart,
-            &[0xA5, 0x20],
-            Duration::from_millis(500),
-        ).await?;
+    pub async fn start(
+        &mut self,
+    ) -> Result<(), LidarError> {
+        self.tx.write(&[0xA5, 0x20]).await?;
 
-        let mut response = [0u8; 7];
+        let mut res = [0u8; 7];
+        self.read_exact(&mut res).await?;
 
-        uart_read(
-            &mut self.uart,
-            &mut response,
-            Duration::from_millis(1000),
-        ).await?;
-
-        if response != [0xA5, 0x5A, 0x05, 0x00, 0x00, 0x40, 0x81] {
+        if res != [0xA5, 0x5A, 0x05, 0x00, 0x00, 0x40, 0x81] {
             return Err(LidarError::InvalidDescriptor);
         }
 
         Ok(())
     }
 
-    pub async fn halt(&mut self) -> Result<(), LidarError> {
-        let res = uart_write(
-            &mut self.uart,
-            &[0xA5, 0x25],
-            Duration::from_millis(500),
-        ).await;
-
+    pub async fn halt(
+        &mut self,
+    ) -> Result<(), LidarError> {
+        self.tx.write(&[0xA5, 0x25]).await?;
         self.pwm.set_duty_cycle_fully_off();
-        
-        res?;
+
         Ok(())
     }
 
-    pub async fn read_point(&mut self) -> Result<ScanPoint, LidarError> {
+    pub async fn read_point(
+        &mut self,
+    ) -> Result<ScanPoint, LidarError> {
+        // How many single-byte shifts to try before giving up on realigning.
+        const MAX_RESYNC_BYTES: usize = 64;
+
         let mut buf = [0u8; 5];
 
         // Read the scan of 5 bytes.
-        uart_read(
-            &mut self.uart,
-            &mut buf,
-            Duration::from_millis(1000),
-        ).await?;
+        self.read_exact(&mut buf).await?;
 
-        // Check packet validity.
-        let start = buf[0] & 0x01;
-        let inverse_start = (buf[0] >> 1) & 0x01;
-        let check_bit = buf[1] & 0x01;
+        // Valid packets have S-inverse opposite to S, and C set to 1 (protocol doc, p.16).
+        // If those checks fail we started mid-packet, so slide forward one byte
+        // at a time until they pass.
+        let mut shifts = 0;
 
-        if (start == inverse_start) || (check_bit != 1) {
-            return Err(LidarError::InvalidMeasurement);
+        loop {
+            let start = buf[0] & 0x01;
+            let inverse_start = (buf[0] >> 1) & 0x01;
+            let check_bit = buf[1] & 0x01;
+
+            if (start != inverse_start) && (check_bit == 1) {
+                break;
+            }
+
+            if shifts == MAX_RESYNC_BYTES {
+                return Err(LidarError::InvalidMeasurement);
+            }
+
+            buf.copy_within(1.., 0);
+            self.read_exact(&mut buf[4..]).await?;
+            shifts += 1;
         }
 
 
@@ -156,12 +199,7 @@ where
         &mut self,
         command: u8,
     ) -> Result<(), LidarError> {
-        uart_write(
-            &mut self.uart,
-            &[0xA5, command],
-            Duration::from_millis(500),
-        ).await?;
-
+        self.tx.write(&[0xA5, command]).await?;
         Ok(())
     }
 }

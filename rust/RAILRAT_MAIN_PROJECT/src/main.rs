@@ -40,10 +40,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 
-mod shared;
-mod drivers;
-
-use crate::{
+use railrat::{
     shared::{
         uart::{uart_read, uart_write, UartError},
     },
@@ -150,7 +147,7 @@ async fn main(spawner: Spawner) {
 
     //  MAIN LOOP
 
-    let speeds: [i8; 9] = [100, 50, 25, 5, 0, -5, -50, -25, -100];
+    let speeds: [i8; 9] = [0, 5, 25, 50, 100, 0, -5, -25, -50];
     let mut buffer = [0u8; 1];
     
     
