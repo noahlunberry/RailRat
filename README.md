@@ -1,6 +1,5 @@
 # RailRat
-
-RailRat is a self propelled inspection device that will ride along standard-gauge (4 foot, 8.5 inches) railroad. It will scan both rails with a rotating 2D LiDAR to report geometry defects.  Any anomalies will be reported, along with their GPS location, their severity, and camera-captured images of the anomalies. Reports will be networked to a central server in real time as defects are detected. 
+RailRat is an autonomous railroad inspection device designed to bridge the gap between track geometry cars and ATGMS systems. It will traverse along standard-gauge (4 foot, 8.5 inches) railroad, scanning the rails with a rotating 2D LiDAR.  Any anomalies will be reported, along with their GPS location and the severity of the defect(s). Reports will be networked to a central server in real time as defects are detected. 
 
 
 ## Team Members
@@ -66,11 +65,18 @@ RailRat is a self propelled inspection device that will ride along standard-gaug
 
 
 ## Hardware/Components Used
+
+### Navigation & Power Supply
 - JGB37-520 motor with built-in encoders.
 - L298N motor driver.
 - Might Max 12V 7Ah battery.
+
+### Microcontroller
 - STM32F439ZI Nucleo-144 development board.
+
+### Sensors & Daughterboard Components
 - RPLIDAR A1M8 LiDAR sensor.
-- IMU - TBD
-- GPS - TBD
-- IME-M module - TBD
+- IAM-20680 IMU.
+- SAM-M10Q GPS with a SparkFun breakout.
+- IME-M module - **TBD**
+- MicroSD SPI breakout

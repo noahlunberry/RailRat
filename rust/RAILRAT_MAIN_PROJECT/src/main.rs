@@ -6,15 +6,30 @@ use embassy_time::Timer;
 use embassy_stm32::{
     bind_interrupts,
     dma,
-    gpio::{Level, Output, OutputType, Speed},
+    gpio::{
+        Level, 
+        Output, 
+        OutputType, 
+        Speed
+    },
     mode::Async,
     peripherals,
     time::Hertz,
     timer::{
         low_level::CountingMode,
-        simple_pwm::{PwmPin, SimplePwm},
+        simple_pwm::{
+            PwmPin, 
+            SimplePwm
+        },
     },
-    usart::{self, Config, DataBits, Parity, StopBits, Uart, UartTx, UartRx},
+    usart::{
+        self, 
+        Config, 
+        DataBits, 
+        Parity, 
+        StopBits, 
+        Uart
+    },
 };
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
@@ -24,8 +39,17 @@ use embassy_sync::{
 use defmt_rtt as _;
 use panic_probe as _;
 
-mod drivers;
-use crate::drivers::{MotorDriver, GPS, LiDAR};
+
+use railrat::{
+    shared::{
+        uart::{uart_read, uart_write, UartError},
+    },
+    drivers::{
+        MotorDriver, 
+        GPS, 
+        Rplidar
+    },
+};
 
 
 // Configure interrupt handlers for DMA-driven UART
@@ -76,7 +100,7 @@ async fn main(spawner: Spawner) {
 
     // DMA-driven UART for ST-LINK
 
-    let uart3 = Uart::new(
+    let mut uart3 = Uart::new(
         p.USART3,
         p.PD9,       // RX
         p.PD8,       // TX
@@ -85,8 +109,6 @@ async fn main(spawner: Spawner) {
         Irqs,
         config,
     ).unwrap();
-
-    let (mut uart3_tx, mut uart3_rx) = uart3.split();
 
 
 
@@ -125,7 +147,7 @@ async fn main(spawner: Spawner) {
 
     //  MAIN LOOP
 
-    let speeds: [i8; 9] = [100, 50, 25, 5, 0, -5, -50, -25, -100];
+    let speeds: [i8; 9] = [0, 5, 25, 50, 100, 0, -5, -25, -50];
     let mut buffer = [0u8; 1];
     
     
@@ -135,10 +157,10 @@ async fn main(spawner: Spawner) {
 
         for speed in speeds.iter() {
             motor_driver.set_speed(*speed);
-            uart3_tx.write(&[b'0' + iteration]).await.unwrap();
-            uart3_tx.write(b"\r\n\n").await.unwrap();
+            uart3.write(&[b'0' + iteration]).await.unwrap();
+            uart3.write(b"\r\n\n").await.unwrap();
 
-            uart3_rx.read(&mut buffer).await.unwrap();
+            uart3.read(&mut buffer).await.unwrap();
             iteration += 1;
         }
         

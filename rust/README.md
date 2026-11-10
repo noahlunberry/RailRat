@@ -28,31 +28,29 @@ cargo install probe-rs-tools --locked   # Install probe-rs
 ```
 
 ### 2. Building & loading
+From the `rust/` directory:
 ```bash
 cargo build --release # Compiles your firmware
 cargo run --release   # Flashes the STM32
 ```
 
-### OPTIONAL: Creating a new example project
+### OPTIONAL: Creating an example project
 1) Create a new project:
+
 ```bash
-cargo new <project_name>
+cargo new examples/<PROJECT_NAME>
 ```
 
-2) Configure `.cargo/config.toml` to target the STM32 (create the directory if it does not yet exist):
+2) Copy the contents of `RAILRAT_MAIN_PROJECT/Cargo.toml` into the example project's `Cargo.toml`. Change the project name appropriately.
 
-```toml
-[build]
-target = "thumbv7em-none-eabihf"
+3) Copy any necessary source code from `RAILRAT_MAIN_PROJECT/src/` into the example project's `src/` directory.
 
-[target.thumbv7em-none-eabihf]
-runner = "probe-rs run --chip STM32F439ZI"
+4) To build and flash from the `rust/` directory:
 
-[env]
-DEFMT_LOG = "info"  # Can be changed
+```bash
+cargo build -p <PROJECT_NAME> --release
+cargo run -p <PROJECT_NAME> --release
 ```
-
-3) Configure dependencies in `Cargo.toml`. Examples of this file can be found in the `examples/` directory.
 
 
 ## Contributing
@@ -112,6 +110,7 @@ git merge origin/main
 ```
 
 Resolve any merge conflicts, if necessary, before continuing development.
+
 
 ### 4. Pull Requests
 

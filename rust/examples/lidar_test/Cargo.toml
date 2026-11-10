@@ -1,0 +1,25 @@
+[package]
+name = "lidar_test"
+version = "0.1.0"
+edition = "2024"
+
+# no_std firmware: there's no `test` crate for the board target, so don't build test/bench harnesses
+[[bin]]
+name = "lidar_test"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+railrat = { path = "../../RAILRAT_MAIN_PROJECT", package = "main" }
+
+embassy-stm32.workspace = true
+embassy-executor.workspace = true
+embassy-time.workspace = true
+
+defmt.workspace = true
+defmt-rtt.workspace = true
+panic-probe.workspace = true
+
+cortex-m.workspace = true
+cortex-m-rt.workspace = true
