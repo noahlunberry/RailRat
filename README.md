@@ -77,6 +77,6 @@ RailRat is an autonomous railroad inspection device designed to bridge the gap b
 ### Sensors & Daughterboard Components
 - RPLIDAR A1M8 LiDAR sensor.
 - IAM-20680 IMU.
-- SparkFun SAM-M10Q GPS.
+- SAM-M10Q GPS with a SparkFun breakout.
 - IME-M module - **TBD**
 - MicroSD SPI breakout
