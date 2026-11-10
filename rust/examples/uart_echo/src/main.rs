@@ -117,6 +117,11 @@ async fn main(spawner : Spawner) {
         Level::Low,
         Speed::Low,
     );
+    let red_led = Output::new(
+        p.PB14,
+        Level::Low,
+        Speed::Low,
+    );
 
     // Initialize DMA-driven UART
     let uart3 = Uart::new(

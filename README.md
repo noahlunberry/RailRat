@@ -1,5 +1,4 @@
 # RailRat
-
 RailRat is an autonomous railroad inspection device designed to bridge the gap between track geometry cars and ATGMS systems. It will traverse along standard-gauge (4 foot, 8.5 inches) railroad, scanning the rails with a rotating 2D LiDAR.  Any anomalies will be reported, along with their GPS location and the severity of the defect(s). Reports will be networked to a central server in real time as defects are detected. 
 
 
@@ -78,6 +77,6 @@ RailRat is an autonomous railroad inspection device designed to bridge the gap b
 ### Sensors & Daughterboard Components
 - RPLIDAR A1M8 LiDAR sensor.
 - IAM-20680 IMU.
-- SparkFun SAM-M10Q GPS.
+- SAM-M10Q GPS with a SparkFun breakout.
 - IME-M module - **TBD**
 - MicroSD SPI breakout

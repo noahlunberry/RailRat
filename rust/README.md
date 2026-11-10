@@ -111,6 +111,7 @@ git merge origin/main
 
 Resolve any merge conflicts, if necessary, before continuing development.
 
+
 ### 4. Pull Requests
 
 Once your feature is complete:
