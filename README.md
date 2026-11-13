@@ -1,4 +1,7 @@
 # RailRat
+
+[![RailRat lidar scan on real track](https://img.youtube.com/vi/EzvamZzDntU/maxresdefault.jpg)](https://www.youtube.com/watch?v=EzvamZzDntU)
+
 RailRat is an autonomous railroad inspection device designed to bridge the gap between track geometry cars and ATGMS systems. It will traverse along standard-gauge (4 foot, 8.5 inches) railroad, scanning the rails with a rotating 2D LiDAR.  Any anomalies will be reported, along with their GPS location and the severity of the defect(s). Reports will be networked to a central server in real time as defects are detected. 
 
 
