@@ -9,8 +9,20 @@ Run from `rust/`, with the Nucleo plugged in over USB:
 python examples/rail_scan/record.py
 ```
 
-1. At startup the lidar lists its scan modes and the fastest one is picked
-   (`Scan mode ...` / `Using scan mode N` lines).
+To turn a saved log into CSVs (no board needed):
+
+```
+python examples/rail_scan/record.py scans/2026-11-12_13-46-39/raw.log
+```
+
+This writes `points.csv`, `events.csv` and `stations.csv` into a new
+`scans/<date_time>/` folder. Then plot the rails with
+`python examples/rail_scan/plot_rails.py scans/<that folder>/points.csv`.
+
+During a live run:
+
+1. At startup the lidar lists its scan modes and uses Boost (mode 2), set by
+   `SCAN_MODE` (`Scan mode ...` / `Using scan mode N` lines).
 2. The cart starts on its own `AUTO_START_SECS` (5 s) after boot and drives
    continuously. The blue USER button stops it; pressing again starts it again.
    (`STOP_AND_GO = true` switches to drive/stop/scan steps instead.)
