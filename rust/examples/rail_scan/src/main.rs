@@ -4,9 +4,7 @@
 // Track scanning run: streams EVERY byte the lidar sends to the computer and
 // drives the cart for as long as you want.
 //
-// - At startup the lidar is asked which scan modes it has, and the one with the
-//   most samples per second is used (more points per revolution). The list is
-//   printed so you can see what was picked.
+// - At startup the lidar lists its scan modes, then scans in SCAN_MODE (Boost).
 // - The lidar's raw scan bytes are sent over the debug probe (defmt/RTT) undecoded,
 //   in numbered chunks, so the computer can check that nothing was lost.
 //   `record.py` decodes them and saves every point to a CSV file.
@@ -38,7 +36,6 @@ use embassy_stm32::{
     wdg::IndependentWatchdog,
 };
 use embassy_time::{with_timeout, Duration, Instant, Timer};
-use core::sync::atomic::{AtomicBool, Ordering};
 
 use defmt_rtt as _;
 use panic_probe as _;
@@ -63,16 +60,6 @@ const CART_MM_PER_SEC: i32 = 300;
 // Seconds after boot before the cart starts on its own. None = wait for the button.
 const AUTO_START_SECS: Option<u64> = Some(5);
 
-// Stop-and-go: drive for STEP_MS, stop, wait SETTLE_MS for the cart to stop
-// rocking, then scan the same spot for HOLD_MS (a "station"), and repeat.
-// Each station stacks ~HOLD_MS/250 lidar revolutions on one cross-section with
-// no motion blur, which is what gauge measurement needs.
-// false = drive continuously.
-const STOP_AND_GO: bool = false;
-const STEP_MS: u64 = 400;
-const SETTLE_MS: u64 = 300;
-const HOLD_MS: u64 = 2000;
-
 // The cart runs until Ctrl+C in record.py, which stops it within ~3-5 s: the
 // board stops being read, the watchdog resets it, and it does not auto-start
 // after a watchdog reset. The blue button stops it instantly.
@@ -87,11 +74,6 @@ const LIDAR_MOTOR_SPEED: u8 = 85;
 // revolutions vs 6-33% for Sensitivity (3), which ties Boost on samples/s and
 // would otherwise be auto-picked as the lidar's "typical" mode.
 const SCAN_MODE: Option<u16> = Some(2);
-// Mode comparison: run each of these scan modes for SECS_PER_MODE, then stop the
-// cart. Every point in points.csv is labeled with its mode. Empty = normal run
-// using SCAN_MODE, forever.
-const MODE_SEQUENCE: &[u16] = &[];  // e.g. &[2, 4] to compare Boost and Stability
-const SECS_PER_MODE: u64 = 90;
 
 const STOP_COMMAND: u8 = 0x25;
 
@@ -103,9 +85,6 @@ const CHUNK_SIZE: usize = 250;
 
 const WATCHDOG_SECS: u32 = 3;
 const BUTTON_POLL_MS: u64 = 20;
-
-// Set by the lidar task when MODE_SEQUENCE is finished; main then stops the cart
-static ALL_MODES_DONE: AtomicBool = AtomicBool::new(false);
 
 static mut LIDAR_RX_BUFFER: [u8; LIDAR_RX_BUFFER_SIZE] = [0; LIDAR_RX_BUFFER_SIZE];
 
@@ -199,9 +178,7 @@ async fn main(spawner: Spawner) {
     let boot = Instant::now();
     let mut was_pressed = false;
 
-    let mut phase = Phase::Stopped;
-    let mut phase_until = Instant::now();
-    let mut station: u32 = 0;
+    let mut driving = false;
 
     // Estimated distance along the track, in mm
     let mut odometer_mm: f32 = 0.0;
@@ -212,7 +189,7 @@ async fn main(spawner: Spawner) {
         Timer::after_millis(BUTTON_POLL_MS).await;
 
         let now = Instant::now();
-        if phase == Phase::Moving {
+        if driving {
             let dt_s = (now - last_tick).as_micros() as f32 / 1e6;
             odometer_mm += signed_cart_speed() as f32 * dt_s;
         }
@@ -229,7 +206,7 @@ async fn main(spawner: Spawner) {
         if just_pressed {
             info!("Button pressed");
             auto_start_pending = false;
-            if phase == Phase::Stopped { start = true } else { stop = true }
+            if driving { stop = true } else { start = true }
         }
 
         if let (true, Some(secs)) = (auto_start_pending, AUTO_START_SECS) {
@@ -239,49 +216,16 @@ async fn main(spawner: Spawner) {
             }
         }
 
-        if ALL_MODES_DONE.load(Ordering::Relaxed) {
-            auto_start_pending = false;
-            if phase != Phase::Stopped {
-                stop = true;
-                start = false;
-            }
-        }
-
         if start {
-            motor_on(&mut motor, now);
-            phase = Phase::Moving;
-            phase_until = now + Duration::from_millis(STEP_MS);
+            motor.set_speed(DRIVE_SPEED);
+            driving = true;
+            // DRIVE <time us> <motor %> <estimated mm/s> is read by record.py
+            info!("DRIVE {=u64} {=i8} {=i32}", now.as_micros(), DRIVE_SPEED, signed_cart_speed());
         } else if stop {
-            match phase {
-                Phase::Moving => motor_off(&mut motor, now),
-                Phase::Holding => station_end(station, now),
-                _ => {}
-            }
             motor.brake();
-            phase = Phase::Stopped;
+            driving = false;
+            info!("DRIVE {=u64} {=i8} {=i32}", now.as_micros(), 0i8, 0i32);
             info!("Cart stopped, about {} m along the track", odometer_mm / 1000.0);
-        } else if STOP_AND_GO && now >= phase_until {
-            match phase {
-                Phase::Moving => {
-                    motor_off(&mut motor, now);
-                    phase = Phase::Settling;
-                    phase_until = now + Duration::from_millis(SETTLE_MS);
-                }
-                Phase::Settling => {
-                    station += 1;
-                    // STATION_START <n> <time us> <estimated mm along track> is read by record.py
-                    info!("STATION_START {=u32} {=u64} {=i32}", station, now.as_micros(), odometer_mm as i32);
-                    phase = Phase::Holding;
-                    phase_until = now + Duration::from_millis(HOLD_MS);
-                }
-                Phase::Holding => {
-                    station_end(station, now);
-                    motor_on(&mut motor, now);
-                    phase = Phase::Moving;
-                    phase_until = now + Duration::from_millis(STEP_MS);
-                }
-                Phase::Stopped => {}
-            }
         }
 
         // Debounce
@@ -289,35 +233,6 @@ async fn main(spawner: Spawner) {
             Timer::after_millis(200).await;
         }
     }
-}
-
-
-#[derive(PartialEq)]
-enum Phase {
-    Stopped,
-    Moving,
-    // Motor off, waiting for the cart to stop rocking
-    Settling,
-    // Standing still, scanning one station
-    Holding,
-}
-
-
-fn motor_on(motor: &mut MotorDriver<peripherals::TIM1>, now: Instant) {
-    motor.set_speed(DRIVE_SPEED);
-    // DRIVE <time us> <motor %> <estimated mm/s> is read by record.py
-    info!("DRIVE {=u64} {=i8} {=i32}", now.as_micros(), DRIVE_SPEED, signed_cart_speed());
-}
-
-
-fn motor_off(motor: &mut MotorDriver<peripherals::TIM1>, now: Instant) {
-    motor.brake();
-    info!("DRIVE {=u64} {=i8} {=i32}", now.as_micros(), 0i8, 0i32);
-}
-
-
-fn station_end(station: u32, now: Instant) {
-    info!("STATION_END {=u32} {=u64}", station, now.as_micros());
 }
 
 
@@ -481,46 +396,16 @@ async fn start_scan(lidar: &mut Rplidar<peripherals::TIM4>, mode: ScanMode) -> O
 async fn lidar_task(mut lidar: Rplidar<peripherals::TIM4>) {
     // Chunk counter, never reset, so the computer can spot any missing chunk
     let mut seq: u32 = 0;
-
-    if MODE_SEQUENCE.is_empty() {
-        stop_scan(&mut lidar).await;
-        let mode = choose_scan_mode(&mut lidar, SCAN_MODE).await;
-        scan_until(&mut lidar, mode, None, &mut seq).await;
-    }
-
-    for (i, &mode_id) in MODE_SEQUENCE.iter().enumerate() {
-        stop_scan(&mut lidar).await;
-        let mode = choose_scan_mode(&mut lidar, Some(mode_id)).await;
-        info!("MODE TEST {} of {}: scan mode {} for {} s", i + 1, MODE_SEQUENCE.len(), mode.id, SECS_PER_MODE);
-        let deadline = Instant::now() + Duration::from_secs(SECS_PER_MODE);
-        scan_until(&mut lidar, mode, Some(deadline), &mut seq).await;
-    }
+    let mut chunk = [0u8; CHUNK_SIZE];
 
     stop_scan(&mut lidar).await;
-    lidar.set_motor_speed(0);
-    ALL_MODES_DONE.store(true, Ordering::Relaxed);
-    info!("ALL MODES DONE, cart stopped. Press Ctrl+C to save.");
+    let mode = choose_scan_mode(&mut lidar, SCAN_MODE).await;
 
+    // Scan forever, restarting the scan after errors
     loop {
-        Timer::after_secs(3600).await;
-    }
-}
+        stop_scan(&mut lidar).await;
 
-
-/// Scans in `mode` until `deadline` (or forever), restarting the scan after errors.
-async fn scan_until(
-    lidar: &mut Rplidar<peripherals::TIM4>,
-    mode: ScanMode,
-    deadline: Option<Instant>,
-    seq: &mut u32,
-) {
-    let mut chunk = [0u8; CHUNK_SIZE];
-    let expired = || deadline.is_some_and(|d| Instant::now() >= d);
-
-    while !expired() {
-        stop_scan(lidar).await;
-
-        let Some(answer_type) = start_scan(lidar, mode).await else {
+        let Some(answer_type) = start_scan(&mut lidar, mode).await else {
             Timer::after_secs(1).await;
             continue;
         };
@@ -531,7 +416,7 @@ async fn scan_until(
 
         let mut scanning = true;
 
-        while scanning && !expired() {
+        while scanning {
             let mut filled = 0;
 
             while filled < CHUNK_SIZE {
@@ -539,7 +424,7 @@ async fn scan_until(
                     Ok(Ok(n)) => filled += n,
                     Ok(Err(error)) => {
                         // Usually an overrun: the queue filled up and bytes were lost
-                        warn!("LOST lidar read failed at chunk {}, restarting scan: {}", *seq, Debug2Format(&error));
+                        warn!("LOST lidar read failed at chunk {}, restarting scan: {}", seq, Debug2Format(&error));
                         scanning = false;
                         break;
                     }
@@ -554,8 +439,8 @@ async fn scan_until(
             // Send what we have, even a partial chunk before a restart.
             // Time is when the chunk's last byte was read.
             if filled > 0 {
-                info!("D {=u32} {=u64} {=[u8]}", *seq, Instant::now().as_micros(), &chunk[..filled]);
-                *seq = seq.wrapping_add(1);
+                info!("D {=u32} {=u64} {=[u8]}", seq, Instant::now().as_micros(), &chunk[..filled]);
+                seq = seq.wrapping_add(1);
             }
         }
     }

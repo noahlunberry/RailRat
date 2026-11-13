@@ -7,7 +7,6 @@ Usage, from the rust folder:
 Each run makes a folder scans/<date_time>/ containing:
     raw.log      everything probe-rs printed (the source of truth, can be re-decoded)
     points.csv   one row per lidar measurement
-    events.csv   cart drive start/stop, scan starts, missing chunks
 
 points.csv columns:
     t_us            board time in microseconds (estimated per point, see below)
@@ -18,6 +17,7 @@ points.csv columns:
     quality         signal strength 0-63 in standard mode; blank in the faster
                     modes, which don't report it
     start_flag      1 on the first point of each revolution
+    scan_mode       lidar scan mode, e.g. "2 Boost"
 
 The board stamps each chunk with the time its last byte was read, and points are
 spread back from there by UART byte time. If the computer fell behind, chunks
@@ -36,7 +36,6 @@ Only uses the Python standard library.
 
 import csv
 import datetime
-import math
 import pathlib
 import re
 import subprocess
@@ -50,14 +49,6 @@ CHUNK_PATTERN = re.compile(r"\bD (\d+) (\d+) \[([\d, ]*)\]")
 SCAN_START_PATTERN = re.compile(r"\bSCAN_START (\d+)(?: (\d+))?(?: (\d+))?")
 SCAN_MODE_PATTERN = re.compile(r"\bScan mode (\d+): (\S+)")
 DRIVE_PATTERN = re.compile(r"\bDRIVE (\d+) (-?\d+)(?: (-?\d+))?")
-STATION_START_PATTERN = re.compile(r"\bSTATION_START (\d+) (\d+) (-?\d+)")
-STATION_END_PATTERN = re.compile(r"\bSTATION_END (\d+) (\d+)")
-
-# Station report: points farther out than this (mm, either side) count as "rail zone"
-RAIL_ZONE_MM = 680
-# Ignore returns farther than this (stray hits on things beside the track)
-MAX_RANGE_MM = 1500
-
 RUST_FOLDER = pathlib.Path(__file__).resolve().parents[2]
 
 ANS_STANDARD = 0x81
@@ -261,28 +252,10 @@ class CapsuleDecoder:
 class Recorder:
     def __init__(self, out_folder):
         self.points_file = open(out_folder / "points.csv", "w", newline="")
-        self.events_file = open(out_folder / "events.csv", "w", newline="")
         self.points = csv.writer(self.points_file)
         self.points.writerow([
-            "t_us", "along_track_mm", "rev", "angle_deg", "distance_mm", "quality", "start_flag", "station", "scan_mode",
+            "t_us", "along_track_mm", "rev", "angle_deg", "distance_mm", "quality", "start_flag", "scan_mode",
         ])
-        self.events = csv.writer(self.events_file)
-        self.events.writerow(["t_us", "event", "value", "cart_mm_per_s"])
-        self.stations_file = open(out_folder / "stations.csv", "w", newline="")
-        self.stations = csv.writer(self.stations_file)
-        self.stations.writerow([
-            "station", "start_t_us", "end_t_us", "along_track_mm", "revs", "valid_points",
-            "left_edge_mm", "right_edge_mm", "left_rail_zone_points", "right_rail_zone_points",
-        ])
-
-        # Stop-and-go stations. A station's last points are decoded a little after
-        # its STATION_END line arrives, so a closed station stays open for late points.
-        self.open_station = None     # (n, start_t_us, along_mm)
-        self.closing_station = None  # (n, start_t_us, along_mm, end_t_us)
-        self.station_points = []     # (x_mm, y_mm) of valid points
-        self.station_revs = 0
-        self.station_count = 0
-
         # Old logs have no format on SCAN_START; those were standard scans
         self.decoder = StandardDecoder(self.emit)
         self.skipped_bytes = 0
@@ -314,33 +287,16 @@ class Recorder:
             return self.odometer_mm
         return self.odometer_mm + self.cart_mm_per_s * (t_us - self.odometer_t_us) / 1e6
 
-    def station_at(self, t_us):
-        if self.closing_station and self.closing_station[1] <= t_us <= self.closing_station[3]:
-            return self.closing_station[0]
-        if self.open_station and t_us >= self.open_station[1]:
-            return self.open_station[0]
-        return ""
-
     def emit(self, t_us, angle_deg, distance_mm, quality, start_flag):
-        if self.closing_station and t_us > self.closing_station[3]:
-            self.report_station()
-
         if start_flag:
             self.rev += 1
             self.window_revs += 1
         along = self.along_track_mm(t_us)
         self.last_along_mm = along
 
-        station = self.station_at(t_us)
-        if station != "":
-            self.station_revs += start_flag
-            if 0 < distance_mm < MAX_RANGE_MM:
-                angle = math.radians(angle_deg)
-                self.station_points.append((distance_mm * math.sin(angle), distance_mm * math.cos(angle)))
-
         self.points.writerow([
             round(t_us), f"{along:.1f}", self.rev, f"{angle_deg:.4f}", f"{distance_mm:.2f}", quality, start_flag,
-            station, self.scan_mode,
+            self.scan_mode,
         ])
         self.points_per_mode[self.scan_mode] = self.points_per_mode.get(self.scan_mode, 0) + 1
         self.point_count += 1
@@ -371,7 +327,6 @@ class Recorder:
                 gap = (seq - self.expected_seq) % 2**32
                 self.missing_chunks += gap
                 print(f"!! {gap} chunk(s) missing before chunk {seq}")
-                self.events.writerow([t_us, "missing_chunks", gap, ""])
                 self.decoder.restart()
             self.expected_seq = (seq + 1) % 2**32
 
@@ -387,31 +342,12 @@ class Recorder:
                 mode_id = int(match.group(3))
                 self.scan_mode = f"{mode_id} {self.mode_names.get(mode_id, '?')}"
             self.new_decoder(answer_type)
-            self.events.writerow([match.group(1), "scan_start", f"0x{answer_type:02x}", self.scan_mode])
             print(f">> scan started, mode {self.scan_mode or '?'}, format 0x{answer_type:02x}")
             return
 
         match = SCAN_MODE_PATTERN.search(line)
         if match:
             self.mode_names[int(match.group(1))] = match.group(2)
-
-        match = STATION_START_PATTERN.search(line)
-        if match:
-            if self.closing_station:
-                self.report_station()
-            n, t_us, along = (int(g) for g in match.groups())
-            self.open_station = (n, t_us, along)
-            self.station_points = []
-            self.station_revs = 0
-            return
-
-        match = STATION_END_PATTERN.search(line)
-        if match:
-            n, t_us = int(match.group(1)), int(match.group(2))
-            if self.open_station and self.open_station[0] == n:
-                self.closing_station = (*self.open_station, t_us)
-            self.open_station = None
-            return
 
         match = DRIVE_PATTERN.search(line)
         if match:
@@ -423,14 +359,10 @@ class Recorder:
             self.odometer_t_us = t_us
             self.cart_mm_per_s = mm_per_s
 
-            self.events.writerow([t_us, "drive", percent, mm_per_s])
-            self.events_file.flush()
-            # Stop-and-go toggles the motor every step; only announce when not in stations
-            if self.station_count == 0 and self.open_station is None:
-                if percent:
-                    print(f">> cart DRIVING at {percent}% (~{mm_per_s} mm/s), at {self.odometer_mm / 1000:.2f} m")
-                else:
-                    print(f">> cart STOPPED at ~{self.odometer_mm / 1000:.2f} m along the track")
+            if percent:
+                print(f">> cart DRIVING at {percent}% (~{mm_per_s} mm/s), at {self.odometer_mm / 1000:.2f} m")
+            else:
+                print(f">> cart STOPPED at ~{self.odometer_mm / 1000:.2f} m along the track")
             return
 
         # Skip probe-rs location lines, show everything else (scan modes, warnings, flashing)
@@ -438,36 +370,7 @@ class Recorder:
         if stripped and not stripped.startswith("└─"):
             print(line.rstrip())
 
-    def report_station(self):
-        """Summarize the closed station: how far out to each side the lidar saw."""
-        n, start_t, along, end_t = self.closing_station
-        self.closing_station = None
-        self.station_count += 1
-
-        points = self.station_points
-        left = [x for x, y in points if x < 0]
-        right = [x for x, y in points if x > 0]
-        left_edge = min(left) if left else 0
-        right_edge = max(right) if right else 0
-        left_zone = sum(1 for x in left if x < -RAIL_ZONE_MM)
-        right_zone = sum(1 for x in right if x > RAIL_ZONE_MM)
-
-        self.stations.writerow([
-            n, start_t, end_t, along, self.station_revs, len(points),
-            round(left_edge), round(right_edge), left_zone, right_zone,
-        ])
-        self.stations_file.flush()
-        print(
-            f"   station {n:4d} @ {along / 1000:6.2f} m: {self.station_revs} revs, {len(points)} pts | "
-            f"widest L {left_edge:5.0f} R {right_edge:5.0f} mm | "
-            f"rail-zone pts (|x|>{RAIL_ZONE_MM}) L {left_zone:4d} R {right_zone:4d}"
-        )
-        self.station_points = []
-
     def print_status(self):
-        # Stop-and-go prints a line per station instead
-        if self.station_count or self.open_station or self.closing_station:
-            return
         now = time.monotonic()
         if now - self.last_status < 2 or self.window_start_t_us is None:
             return
@@ -490,13 +393,7 @@ class Recorder:
         self.window_start_t_us = None
 
     def close(self):
-        if self.closing_station:
-            self.report_station()
         self.points_file.close()
-        self.events_file.close()
-        self.stations_file.close()
-        if self.station_count:
-            print(f"\nStations scanned: {self.station_count} (see stations.csv)")
         if any(self.points_per_mode):
             print("\nPoints per scan mode (scan_mode column in points.csv):")
             for mode, count in self.points_per_mode.items():
