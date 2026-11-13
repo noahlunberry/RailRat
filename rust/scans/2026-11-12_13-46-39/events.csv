@@ -1,0 +1,6 @@
+t_us,event,value,cart_mm_per_s
+2187042,scan_start,0x84,2 Boost
+7004486,drive,90,300
+92357574,scan_start,0x84,4 Stability
+94457916,scan_start,0x84,4 Stability
+182395080,drive,0,0

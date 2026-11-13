@@ -93,6 +93,15 @@ where
         Ok(())
     }
 
+    /// Copies whatever raw bytes are waiting into `buf`, waiting if there are none.
+    /// Returns how many were copied. Used to forward the scan stream undecoded.
+    pub async fn read_bytes(
+        &mut self,
+        buf: &mut [u8],
+    ) -> Result<usize, LidarError> {
+        Ok(self.rx.read(buf).await?)
+    }
+
     /// Discards any received bytes left over from a previous command.
     /// Reads until the line has been quiet for 20 ms, then the buffer is empty.
     pub async fn clear_rx(
@@ -136,6 +145,91 @@ where
         }
 
         Ok(())
+    }
+
+    /// Reads a response descriptor (A5 5A, 30-bit length, answer type).
+    /// Returns (length of the data that follows, answer type).
+    async fn read_descriptor(
+        &mut self,
+    ) -> Result<(usize, u8), LidarError> {
+        let mut descriptor = [0u8; 7];
+        self.read_exact(&mut descriptor).await?;
+
+        if descriptor[0] != 0xA5 || descriptor[1] != 0x5A {
+            return Err(LidarError::InvalidDescriptor);
+        }
+
+        let length = u32::from_le_bytes([descriptor[2], descriptor[3], descriptor[4], descriptor[5]]) & 0x3FFF_FFFF;
+
+        Ok((length as usize, descriptor[6]))
+    }
+
+    /// GET_LIDAR_CONF (0x84, firmware 1.24+). Used to list the scan modes.
+    /// `mode` is required for the per-mode queries. Copies up to `out.len()`
+    /// bytes of the answer into `out` and returns how many were copied.
+    pub async fn get_lidar_conf(
+        &mut self,
+        conf_type: u32,
+        mode: Option<u16>,
+        out: &mut [u8],
+    ) -> Result<usize, LidarError> {
+        // A5 84 <payload size> <payload> <checksum>, checksum = XOR of every byte before it
+        let mut request = [0u8; 10];
+        request[0] = 0xA5;
+        request[1] = 0x84;
+        request[3..7].copy_from_slice(&conf_type.to_le_bytes());
+
+        let mut payload_len = 4;
+        if let Some(mode) = mode {
+            request[7..9].copy_from_slice(&mode.to_le_bytes());
+            payload_len = 6;
+        }
+        request[2] = payload_len as u8;
+
+        let checksum_at = 3 + payload_len;
+        request[checksum_at] = request[..checksum_at].iter().fold(0, |acc, byte| acc ^ byte);
+        self.tx.write(&request[..=checksum_at]).await?;
+
+        let (length, answer_type) = self.read_descriptor().await?;
+        if answer_type != 0x20 || !(4..=256).contains(&length) {
+            return Err(LidarError::InvalidDescriptor);
+        }
+
+        // The answer starts by repeating the conf type
+        let mut echo = [0u8; 4];
+        self.read_exact(&mut echo).await?;
+        if u32::from_le_bytes(echo) != conf_type {
+            return Err(LidarError::InvalidDescriptor);
+        }
+
+        let data_len = length - 4;
+        let kept = data_len.min(out.len());
+        self.read_exact(&mut out[..kept]).await?;
+
+        // Throw away anything that didn't fit
+        let mut scratch = [0u8; 1];
+        for _ in kept..data_len {
+            self.read_exact(&mut scratch).await?;
+        }
+
+        Ok(kept)
+    }
+
+    /// Starts an express scan (0x82) in the given scan mode. Returns the answer
+    /// type from the descriptor, which says how the data stream is packed
+    /// (0x82 capsuled, 0x84 ultra capsuled, 0x85 dense capsuled).
+    pub async fn start_express(
+        &mut self,
+        mode: u16,
+    ) -> Result<u8, LidarError> {
+        // A5 82 05 <working mode> <flags u16> <param u16> <checksum>
+        let mut request = [0xA5, 0x82, 0x05, mode as u8, 0, 0, 0, 0, 0];
+        request[8] = request[..8].iter().fold(0, |acc, byte| acc ^ byte);
+        self.tx.write(&request).await?;
+
+        let (_, answer_type) = self.read_descriptor().await?;
+
+        Ok(answer_type)
     }
 
     pub async fn halt(
