@@ -46,7 +46,7 @@ use railrat::{
     },
     drivers::{
         MotorDriver, 
-        GPS, 
+        Gps, 
         Rplidar
     },
 };

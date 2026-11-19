@@ -3,5 +3,5 @@ pub mod gps;
 pub mod lidar;
 
 pub use motor_driver::MotorDriver;
-pub use gps::GPS;
+pub use gps::Gps;
 pub use lidar::Rplidar;
