@@ -28,9 +28,28 @@ impl From<UartError> for GpsError {
 // The SAM-M10Q's default UART configurations are:
 // BAUD = 9600
 // 8N1
-// I/O in NMEA
+// NMEA sentences in RMC
 const DEFAULT_BAUD = 9600;
 
+
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GpsData {
+    pub latitude_deg: Option<f64>,
+    pub longitude_deg: Option<f64>,
+    pub altitude_m: Option<f32>,
+    pub speed_mps: Option<f32>,
+    pub satellites: Option<u8>,
+    pub fix_valid: bool,
+}
+
+#[derive(Debug)]
+pub enum GpsError {
+    Uart(usart::Error),
+    InvalidSentence,
+    InvalidChecksum,
+    BufferOverflow,
+}
 
 
 pub struct Gps {
@@ -56,6 +75,13 @@ impl Gps {
         buf: &mut [u8],
     ) -> Result<(), GpsError> {
 
+
+    }
+
+
+    async fn parse_nmea(
+        input: [u8],
+    ) {
 
     }
 }
