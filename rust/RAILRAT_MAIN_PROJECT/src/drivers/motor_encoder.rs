@@ -23,10 +23,15 @@ where
     Timer: GeneralInstance4Channel,
 {
     qei: Qei<'static, Timer>,
+
     ticks_per_wheel_rev: f32,
+    wheel_circumference_mm: f32,
+
     previous_count: u16,
     previous_time: Instant,
+
     position_ticks: i64,
+    velocity_mmps: f32,
 }
 
 
@@ -34,64 +39,80 @@ impl<Timer> MotorEncoder<Timer>
 where
     Timer: GeneralInstance4Channel,
 {
+    pub const TICKS_PER_MOTOR_REV: u16 = 11;
+    pub const QEI_COUNTS_PER_CYCLE: u16 = 4;
 
-    pub const TICKS_PER_MOTOR_REV : u8 = 11;
-    pub const QEIx4_PULSES_PER_PERIOD : u8 = 4;
 
     pub fn new(
         qei: Qei<'static, Timer>,
         ticks_per_wheel_rev: f32,
+        wheel_circumference_mm: f32,
     ) -> Self {
+        assert!(ticks_per_wheel_rev > 0.0);
+        assert!(wheel_circumference_mm > 0.0);
+
         let previous_count = qei.count();
 
         Self {
             qei,
             ticks_per_wheel_rev,
+            wheel_circumference_mm,
             previous_count,
             previous_time: Instant::now(),
             position_ticks: 0,
+            velocity_mmps: 0.0,
         }
     }
 
 
-    pub fn update(&mut self) -> f32 {
+    pub fn update(&mut self) {
         let current_count = self.qei.count();
         let current_time = Instant::now();
 
-        // Handle 16-bit counter wraparound
+        // Handle 16-bit counter wraparound.
         let delta_ticks = current_count.wrapping_sub(self.previous_count) as i16;
+
         let delta_time = ((current_time - self.previous_time).as_micros() as f32) / 1_000_000.0;
 
+        if delta_time <= 0.0 {
+            return;
+        }
+
         self.position_ticks += delta_ticks as i64;
+
         self.previous_count = current_count;
         self.previous_time = current_time;
 
-        if delta_time == 0.0 {
-            return 0.0;
-        }
+        let rps = (delta_ticks as f32) / self.ticks_per_wheel_rev / delta_time;
 
-        // rev / s
-        let rps = delta_ticks as f32
-            / self.ticks_per_wheel_rev
-            / delta_time;
-
-        // rev / min
-        rps * 60.0
+        self.velocity_mmps = rps * self.wheel_circumference_mm;
     }
 
 
-    pub fn get_position_ticks(&self) -> i64 {
+    pub fn velocity_mmps(&self) -> f32 {
+        self.velocity_mmps
+    }
+
+
+    pub fn position_ticks(&self) -> i64 {
         self.position_ticks
     }
 
 
-    pub fn get_position_revolutions(&self) -> f32 {
-        (self.position_ticks as f32) / self.ticks_per_wheel_rev
+    pub fn position_revolutions(&self) -> f32 {
+        self.position_ticks as f32 / self.ticks_per_wheel_rev
+    }
+
+
+    pub fn position_mm(&self) -> f32 {
+        self.position_revolutions() * self.wheel_circumference_mm
     }
 
 
     pub fn reset(&mut self) {
         self.position_ticks = 0;
+        self.velocity_mmps = 0.0;
+
         self.previous_count = self.qei.count();
         self.previous_time = Instant::now();
     }
