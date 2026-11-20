@@ -1,0 +1,66 @@
+// g++ -std=c++17 server.cpp -o server -lws2_32
+// server.exe
+// http://localhost:8080
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <iostream>
+#include <string>
+
+int main() {
+    //enable window network library
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        std::cerr << "WSAStartup failed\n";
+        return 1;
+    }
+
+    // create socket
+    SOCKET server = socket(AF_INET, SOCK_STREAM, 0);   // IPv4 + TCP
+    if (server == INVALID_SOCKET) { std::cerr << "socket() failed\n"; return 1; }
+
+    // protocol to try again if a socket is being used
+    char yes = 1;
+    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+    // build into port 8080
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(8080);
+    if (bind(server, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+        return 1;
+    }
+
+    //waits for connection
+    listen(server, 10);
+
+    //main listen and write to website
+    while (true) {
+        SOCKET client = accept(server, nullptr, nullptr);  // waits here until someone connects
+        if (client == INVALID_SOCKET) continue;
+
+        char buffer[4096];
+        int n = recv(client, buffer, sizeof(buffer) - 1, 0);
+        if (n > 0) {
+            buffer[n] = '\0';
+        }
+
+        std::string body = "<h1>Railrat project dashboard</h1><p>Work in progress!</p>";
+        std::string response =
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/html; charset=utf-8\r\n"
+            "Content-Length: " + std::to_string(body.size()) + "\r\n"
+            "Connection: close\r\n"
+            "\r\n" +
+            body;
+        send(client, response.c_str(), (int)response.size(), 0);
+
+        // close
+        closesocket(client);
+    }
+
+    closesocket(server);
+    WSACleanup();
+    return 0;
+}
