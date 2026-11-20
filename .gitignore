@@ -5,4 +5,12 @@
 /rust/examples/*/*
 !/rust/examples/*/Cargo.toml
 !/rust/examples/*/Cargo.lock
+!/rust/examples/*/src/
 !/rust/examples/*/src/main.rs
+!/rust/examples/*/*.py
+!/rust/examples/*/README.md
+
+# Lidar recordings from examples/rail_scan/record.py (can be large)
+/rust/scans/*
+!/rust/scans/2026-11-12_13-46-39/
+/rust/scans/2026-11-12_13-46-39/points.csv
